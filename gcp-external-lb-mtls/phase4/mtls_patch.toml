@@ -1,0 +1,38 @@
+# Phase 4 — Habitat Nginx Patch
+#
+# Apply this patch to configure the local Nginx services (load_balancer and
+# cs_nginx) to:
+#   1. Trust X-Forwarded-For headers from the GCP ALB health-check and proxy
+#      IP ranges so that real client IPs are logged correctly.
+#   2. Enforce the mTLS verification header injected by the GCP ALB in Phase 3,
+#      returning 403 for any request that did not pass Hop-1 mTLS.
+#
+# Apply with:
+#   chef-automate config patch phase4/mtls_patch.toml
+
+[load_balancer.v1.sys.ngx.http]
+  # Enables Nginx to read X-Forwarded-For headers from the GCP ALB.
+  include_x_forwarded_for = true
+
+  # Inject Nginx directives not natively exposed by the Habitat schema.
+  extra_config = """
+set_real_ip_from 130.211.0.0/22;
+set_real_ip_from 35.191.0.0/16;
+real_ip_header X-Forwarded-For;
+
+# Enforce mTLS based on verification header injected by the GCP ALB (Phase 3).
+# Any request that did not pass the Hop-1 client-certificate check is rejected
+# before it reaches the Chef Automate application layer.
+if ($http_x_client_cert_verified != "true") {
+    return 403 "Client certificate verification failed: valid client certificate required";
+}
+"""
+
+[cs_nginx.v1.sys.ngx.http]
+  # Apply identical real-IP trust settings to the Chef Server API service so
+  # that access logs record the originating client IP rather than the ALB IP.
+  extra_config = """
+set_real_ip_from 130.211.0.0/22;
+set_real_ip_from 35.191.0.0/16;
+real_ip_header X-Forwarded-For;
+"""

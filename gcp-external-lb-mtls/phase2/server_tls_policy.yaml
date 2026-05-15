@@ -1,0 +1,16 @@
+# GCP ServerTlsPolicy template — Hop 1 Frontend mTLS
+#
+# Usage: envsubst < server_tls_policy.yaml | gcloud network-security server-tls-policies import \
+#            chef-mtls-policy --source=- --location=global
+#
+# Required environment variable:
+#   PROJECT_ID  — GCP project ID (e.g. my-gcp-project)
+#
+# clientValidationMode REJECT_INVALID ensures that any TLS connection that does
+# not present a valid client certificate signed by the trust config CA is
+# immediately rejected at the ALB edge — no traffic reaches the backend.
+
+name: chef-mtls-policy
+mtlsPolicy:
+  clientValidationMode: REJECT_INVALID
+  clientValidationTrustConfig: projects/${PROJECT_ID}/locations/global/trustConfigs/cluster-frontend-trust
